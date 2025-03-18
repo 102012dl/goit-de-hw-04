@@ -1,0 +1,99 @@
+HW T4 
+
+### Аналіз та виконання завдання з PySpark
+
+#### 1. Опис завдання
+Завдання передбачає запуск та аналіз трьох варіантів PySpark-коду, кожен з яких демонструє вплив різних операцій на кількість виконаних Jobs у SparkUI. Основними аспектами аналізу є:
+- Виконання базового сценарію з фільтрацією та групуванням.
+- Додавання додаткової дії `collect()`.
+- Використання кешування `cache()` для оптимізації виконання.
+- Аналіз результатів у SparkUI.
+
+#### 2. Виправлення помилок у коді
+Оновлений код включає наступні виправлення:
+- Додано правильне завантаження датасету з локального шляху `/content/nuek-vuh3.csv`.
+- Змінено `input("Press Enter to continue...5")` на `input("Press Enter to continue...")`.
+- Переконалися, що кешування використовується правильно для оптимізації виконання.
+- Оптимізовано виклики `collect()`, щоб зменшити повторні обчислення.
+
+#### 3. Інтеграція датасету
+Необхідний датасет тепер завантажується з локального розташування `/content/nuek-vuh3.csv`.
+
+Оновлений код для кожної частини завдання:
+
+**Частина 1 (Базовий варіант)**
+```python
+from pyspark.sql import SparkSession
+
+# Створення сесії Spark
+spark = SparkSession.builder \
+    .master("local[*]") \
+    .config("spark.sql.shuffle.partitions", "2") \
+    .appName("OptimizedSparkApp") \
+    .getOrCreate()
+
+# Завантаження датасету
+nuek_df = spark.read \
+    .option("header", "true") \
+    .option("inferSchema", "true") \
+    .csv("/content/nuek-vuh3.csv")
+
+nuek_repart = nuek_df.repartition(2)
+
+nuek_processed = nuek_repart \
+    .where("final_priority < 3") \
+    .select("unit_id", "final_priority") \
+    .groupBy("unit_id") \
+    .count()
+
+nuek_processed = nuek_processed.where("count>2")
+
+nuek_processed.collect()
+
+input("Press Enter to continue...")
+
+spark.stop()
+```
+**Очікувана кількість Jobs: 5**
+
+**Частина 2 (З додатковим collect)**
+```python
+nuek_processed.collect()
+
+nuek_processed = nuek_processed.where("count>2")
+
+nuek_processed.collect()
+```
+**Очікувана кількість Jobs: 8** (збільшення через додатковий виклик `collect()`)
+
+**Частина 3 (З cache())**
+```python
+nuek_processed = nuek_processed.cache()
+
+nuek_processed.collect()
+
+nuek_processed = nuek_processed.where("count>2")
+
+nuek_processed.collect()
+
+nuek_processed.unpersist()
+```
+**Очікувана кількість Jobs: 7** (оптимізовано через кешування)
+
+#### 4. Аналіз виконання коду
+##### 4.1. Базовий варіант (5 Jobs)
+Очікувана кількість Jobs: **5**
+
+##### 4.2. Додавання `collect()` (8 Jobs)
+Очікувана кількість Jobs: **8**
+
+##### 4.3. Використання `cache()` (7 Jobs)
+Очікувана кількість Jobs: **7** (оптимізовано використання кешу)
+
+#### 5. Висновки
+1. Використання `collect()` без кешування призводить до збільшення кількості Jobs через повторні обчислення.
+2. `cache()` дозволяє зменшити кількість Jobs, оскільки уникає повторного обчислення тих самих даних.
+3. Оптимізація виконання за допомогою кешування зменшує використання ресурсів та покращує продуктивність PySpark.
+4. Використання SparkUI допомагає відстежити ефективність виконання коду.
+
+Таким чином, оновлений код забезпечує правильну обробку даних відповідно до вимог завдання та оптимізує виконання через використання кешування.
